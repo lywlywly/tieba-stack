@@ -1,0 +1,6 @@
+[submodule "services/archive"]
+	path = services/archive
+	url = git@github.com:lywlywly/tieba-archive.git
+[submodule "services/viewer"]
+	path = services/viewer
+	url = git@github.com:lywlywly/tieba-viewer.git

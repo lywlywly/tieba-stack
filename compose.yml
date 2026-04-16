@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: tieba-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-default}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-default}
+      POSTGRES_DB: ${POSTGRES_DB:-tieba}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${POSTGRES_USER:-default} -d ${POSTGRES_DB:-tieba}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  viewer:
+    build:
+      context: ./services/viewer
+      target: prod
+    container_name: tieba-viewer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_DRIVER: postgres
+      DATABASE_URL: postgresql://${POSTGRES_USER:-default}:${POSTGRES_PASSWORD:-default}@postgres:5432/${POSTGRES_DB:-tieba}
+      IMAGE_BASE_DIRS: /data/img0
+    ports:
+      - "${VIEWER_PORT:-3000}:3000"
+    volumes:
+      - ./output:/data/img0:ro
+
+  archive:
+    profiles:
+      - archive
+    build:
+      context: ./services/archive
+    container_name: tieba-archive
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_MODE: postgresql
+      SQLITE_PATH: tieba.db
+      POSTGRES_URL: postgresql+psycopg://${POSTGRES_USER:-default}:${POSTGRES_PASSWORD:-default}@postgres:5432/${POSTGRES_DB:-tieba}
+      CONCURRENCY_LIMIT: ${CONCURRENCY_LIMIT:-2}
+      OUTPUT_DIR: output
+      BDUSS: ${BDUSS}
+      FORUM_NAMES: ${FORUM_NAMES}
+      PAGES: ${PAGES:-5}
+      SLEEP: ${SLEEP:-300}
+    volumes:
+      - ./blacklist.txt:/app/blacklist.txt:ro
+      - ./output:/app/output
+
+volumes:
+  postgres_data:
